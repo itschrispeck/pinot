@@ -73,6 +73,7 @@ public class VectorIndexUtils {
 
   public static IndexWriterConfig getIndexWriterConfig(VectorIndexConfig vectorIndexConfig) {
     IndexWriterConfig indexWriterConfig = new IndexWriterConfig();
+    indexWriterConfig.setOpenMode(IndexWriterConfig.OpenMode.CREATE);
 
     double maxBufferSizeMB = Double.parseDouble(vectorIndexConfig.getProperties()
         .getOrDefault("maxBufferSizeMB", String.valueOf(IndexWriterConfig.DEFAULT_RAM_BUFFER_SIZE_MB)));

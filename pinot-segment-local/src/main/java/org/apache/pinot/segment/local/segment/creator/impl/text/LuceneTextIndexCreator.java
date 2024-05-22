@@ -139,8 +139,12 @@ public class LuceneTextIndexCreator extends AbstractTextIndexCreator {
       // merge segments in the background, which is problematic because the lucene index directory's
       // contents is copied to create the immutable segment. If a background merge occurs during this
       // copy, a FileNotFoundException will be triggered and segment build will fail.
+      //
+      // Also ensure the index is not appended to previous index files, otherwise after a crash the
+      // Lucene index can contain more docs than the realtime segment
       if (!_commitOnClose) {
         indexWriterConfig.setMergeScheduler(NoMergeScheduler.INSTANCE);
+        indexWriterConfig.setOpenMode(IndexWriterConfig.OpenMode.CREATE);
       }
 
       if (_reuseMutableIndex) {
