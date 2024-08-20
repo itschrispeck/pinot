@@ -75,6 +75,10 @@ public class ColumnIndexCreationInfo implements Serializable {
     return ArrayUtils.getLength(uniqueValArray);
   }
 
+  public int getEstimatedDistinctValueCount() {
+    return _columnStatistics.getEstimatedCardinality();
+  }
+
   public boolean isSorted() {
     return _columnStatistics.isSorted();
   }

@@ -122,6 +122,7 @@ public class SegmentGeneratorConfig implements Serializable {
   private boolean _failOnEmptySegment = false;
   private boolean _optimizeDictionary = false;
   private boolean _optimizeDictionaryForMetrics = false;
+  private boolean _optimizeRaw = false;
   private double _noDictionarySizeRatioThreshold = IndexingConfig.DEFAULT_NO_DICTIONARY_SIZE_RATIO_THRESHOLD;
   private boolean _realtimeConversion = false;
   // consumerDir contains data from the consuming segment, and is used during _realtimeConversion optimization
@@ -203,6 +204,7 @@ public class SegmentGeneratorConfig implements Serializable {
 
       _optimizeDictionary = indexingConfig.isOptimizeDictionary();
       _optimizeDictionaryForMetrics = indexingConfig.isOptimizeDictionaryForMetrics();
+      _optimizeRaw = indexingConfig.isOptimizeRaw();
       _noDictionarySizeRatioThreshold = indexingConfig.getNoDictionarySizeRatioThreshold();
     }
 
@@ -741,6 +743,14 @@ public class SegmentGeneratorConfig implements Serializable {
 
   public void setOptimizeDictionaryForMetrics(boolean optimizeDictionaryForMetrics) {
     _optimizeDictionaryForMetrics = optimizeDictionaryForMetrics;
+  }
+
+  public boolean isOptimizeRaw() {
+    return _optimizeRaw;
+  }
+
+  public void setOptimizeRaw(boolean optimizeRaw) {
+    _optimizeRaw = optimizeRaw;
   }
 
   public double getNoDictionarySizeRatioThreshold() {

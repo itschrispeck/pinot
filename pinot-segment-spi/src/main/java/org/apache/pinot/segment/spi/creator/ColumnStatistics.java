@@ -52,6 +52,14 @@ public interface ColumnStatistics extends Serializable {
 
   /**
    *
+   * @return The estimated number of unique values of this column, or -1 if not calculated.
+   */
+  default int getEstimatedCardinality() {
+    return -1;
+  }
+
+  /**
+   *
    * @return For variable length objects, returns the length of the shortest value. For others, returns -1.
    */
   int getLengthOfShortestElement();

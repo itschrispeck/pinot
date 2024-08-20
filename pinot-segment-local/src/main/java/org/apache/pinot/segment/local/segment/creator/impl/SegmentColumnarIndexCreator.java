@@ -140,6 +140,9 @@ public class SegmentColumnarIndexCreator implements SegmentCreator {
       FieldIndexConfigs originalConfig = indexConfigs.get(columnName);
       ColumnIndexCreationInfo columnIndexCreationInfo = indexCreationInfoMap.get(columnName);
       Preconditions.checkNotNull(columnIndexCreationInfo, "Missing index creation info for column: %s", columnName);
+
+      boolean overrideWithDict = ForwardIndexType.forceDictionaryOverride(segmentCreationSpec.isOptimizeRaw(),
+          columnIndexCreationInfo.getEstimatedDistinctValueCount(), columnIndexCreationInfo.getTotalNumberOfEntries());
       boolean dictEnabledColumn = createDictionaryForColumn(columnIndexCreationInfo, segmentCreationSpec, fieldSpec);
       if (originalConfig.getConfig(StandardIndexes.inverted()).isEnabled()) {
         Preconditions.checkState(dictEnabledColumn,
@@ -158,6 +161,7 @@ public class SegmentColumnarIndexCreator implements SegmentCreator {
           .withColumnIndexCreationInfo(columnIndexCreationInfo)
           .withOptimizedDictionary(_config.isOptimizeDictionary()
               || _config.isOptimizeDictionaryForMetrics() && fieldSpec.getFieldType() == FieldSpec.FieldType.METRIC)
+          .withOptimizedRaw(_config.isOptimizeRaw())
           .onHeap(segmentCreationSpec.isOnHeap())
           .withForwardIndexDisabled(forwardIndexDisabled)
           .withTextCommitOnClose(true)
@@ -176,6 +180,12 @@ public class SegmentColumnarIndexCreator implements SegmentCreator {
         //       which uses off-heap memory.
 
         DictionaryIndexConfig dictConfig = config.getConfig(StandardIndexes.dictionary());
+
+        // If optimizeRaw was used, then use custom var len dictionary config
+        if (overrideWithDict) {
+          // TODO: Consider gathering avg/max stats to determine the best dictionary implementation
+          dictConfig = new DictionaryIndexConfig(false, true);
+        }
         if (!dictConfig.isEnabled()) {
           LOGGER.info("Creating dictionary index in column {}.{} even when it is disabled in config",
               segmentCreationSpec.getTableName(), columnName);
@@ -283,6 +293,10 @@ public class SegmentColumnarIndexCreator implements SegmentCreator {
     boolean createDictionary = false;
     if (config.getRawIndexCreationColumns().contains(column) || config.getRawIndexCompressionType()
         .containsKey(column)) {
+      if (ForwardIndexType.forceDictionaryOverride(config.isOptimizeRaw(), info.getEstimatedDistinctValueCount(),
+          info.getTotalNumberOfEntries())) {
+        createDictionary = true;
+      }
       return createDictionary;
     }
 

@@ -81,6 +81,7 @@ public interface IndexCreationContext {
    * Therefore the caller code doesn't need to verify the later condition.
    */
   boolean isOptimizeDictionary();
+  boolean isOptimizeRaw();
 
   boolean isFixedLength();
 
@@ -129,6 +130,7 @@ public interface IndexCreationContext {
     private boolean _forwardIndexDisabled;
     private Object _sortedUniqueElementsArray;
     private boolean _optimizedDictionary;
+    private boolean _optimizedRaw;
     private boolean _fixedLength;
     private boolean _textCommitOnClose;
     private boolean _realtimeConversion = false;
@@ -178,6 +180,11 @@ public interface IndexCreationContext {
 
     public Builder withOptimizedDictionary(boolean optimized) {
       _optimizedDictionary = optimized;
+      return this;
+    }
+
+    public Builder withOptimizedRaw(boolean optimized) {
+      _optimizedRaw = optimized;
       return this;
     }
 
@@ -270,8 +277,8 @@ public interface IndexCreationContext {
       return new Common(Objects.requireNonNull(_indexDir), _lengthOfLongestEntry, _maxNumberOfMultiValueElements,
           _maxRowLengthInBytes, _onHeap, Objects.requireNonNull(_fieldSpec), _sorted, _cardinality,
           _totalNumberOfEntries, _totalDocs, _hasDictionary, _minValue, _maxValue, _forwardIndexDisabled,
-          _sortedUniqueElementsArray, _optimizedDictionary, _fixedLength, _textCommitOnClose, _columnStatistics,
-          _realtimeConversion, _consumerDir, _immutableToMutableIdMap);
+          _sortedUniqueElementsArray, _optimizedDictionary, _optimizedRaw, _fixedLength, _textCommitOnClose,
+          _columnStatistics, _realtimeConversion, _consumerDir, _immutableToMutableIdMap);
     }
 
     public Builder withSortedUniqueElementsArray(Object sortedUniqueElementsArray) {
@@ -302,6 +309,7 @@ public interface IndexCreationContext {
     private final boolean _forwardIndexDisabled;
     private final Object _sortedUniqueElementsArray;
     private final boolean _optimizeDictionary;
+    private final boolean _optimizeRaw;
     private final boolean _fixedLength;
     private final boolean _textCommitOnClose;
     private final ColumnStatistics _columnStatistics;
@@ -313,9 +321,9 @@ public interface IndexCreationContext {
         int maxNumberOfMultiValueElements, int maxRowLengthInBytes, boolean onHeap,
         FieldSpec fieldSpec, boolean sorted, int cardinality, int totalNumberOfEntries,
         int totalDocs, boolean hasDictionary, Comparable<?> minValue, Comparable<?> maxValue,
-        boolean forwardIndexDisabled, Object sortedUniqueElementsArray, boolean optimizeDictionary, boolean fixedLength,
-        boolean textCommitOnClose, ColumnStatistics columnStatistics, boolean realtimeConversion, File consumerDir,
-        int[] immutableToMutableIdMap) {
+        boolean forwardIndexDisabled, Object sortedUniqueElementsArray, boolean optimizeDictionary, boolean optimizeRaw,
+        boolean fixedLength, boolean textCommitOnClose, ColumnStatistics columnStatistics, boolean realtimeConversion,
+        File consumerDir, int[] immutableToMutableIdMap) {
       _indexDir = indexDir;
       _lengthOfLongestEntry = lengthOfLongestEntry;
       _maxNumberOfMultiValueElements = maxNumberOfMultiValueElements;
@@ -332,6 +340,7 @@ public interface IndexCreationContext {
       _forwardIndexDisabled = forwardIndexDisabled;
       _sortedUniqueElementsArray = sortedUniqueElementsArray;
       _optimizeDictionary = optimizeDictionary;
+      _optimizeRaw = optimizeRaw;
       _fixedLength = fixedLength;
       _textCommitOnClose = textCommitOnClose;
       _columnStatistics = columnStatistics;
@@ -407,6 +416,11 @@ public interface IndexCreationContext {
     @Override
     public boolean isOptimizeDictionary() {
       return _optimizeDictionary;
+    }
+
+    @Override
+    public boolean isOptimizeRaw() {
+      return _optimizeRaw;
     }
 
     @Override

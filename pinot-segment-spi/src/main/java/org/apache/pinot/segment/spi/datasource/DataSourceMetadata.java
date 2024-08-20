@@ -102,6 +102,12 @@ public interface DataSourceMetadata {
   int getCardinality();
 
   /**
+   * Returns the estimated cardinality of the column, {@code -1} if cardinality is not estimated (the exact
+   * cardinality may be available via getCardinality()).
+   */
+  default int getEstimatedCardinality() { return -1; }
+
+  /**
    * Returns the max row length in bytes for a var byte MV column. {@code -1} if not applicable.
    * @return
    */

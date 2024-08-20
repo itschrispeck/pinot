@@ -441,4 +441,13 @@ public class ForwardIndexTypeTest {
     assertSame(StandardIndexes.forward(), StandardIndexes.forward(), "Standard index should use the same as "
         + "the ForwardIndexType static instance");
   }
+
+  @Test
+  public void testForceDictionaryOverride() {
+    //noinspection ConstantConditions
+    Assert.assertFalse(ForwardIndexType.forceDictionaryOverride(false, 5, 100));
+    Assert.assertFalse(ForwardIndexType.forceDictionaryOverride(true, -1, 100));
+    Assert.assertTrue(ForwardIndexType.forceDictionaryOverride(true, 5, 100));
+    Assert.assertFalse(ForwardIndexType.forceDictionaryOverride(true, 20, 100));
+  }
 }

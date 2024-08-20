@@ -39,16 +39,14 @@ import org.apache.pinot.spi.data.FieldSpec;
 public class MutableDataSource extends BaseDataSource {
 
   public MutableDataSource(FieldSpec fieldSpec, int numDocs, int numValues, int maxNumValuesPerMVEntry, int cardinality,
-      @Nullable PartitionFunction partitionFunction, @Nullable Set<Integer> partitions, @Nullable Comparable minValue,
-      @Nullable Comparable maxValue, Map<IndexType, MutableIndex> mutableIndexes,
+      int estimatedCardinality, @Nullable PartitionFunction partitionFunction, @Nullable Set<Integer> partitions,
+      @Nullable Comparable minValue, @Nullable Comparable maxValue, Map<IndexType, MutableIndex> mutableIndexes,
       @Nullable MutableDictionary dictionary, @Nullable MutableNullValueVector nullValueVector,
       int maxRowLengthInBytes) {
     super(new MutableDataSourceMetadata(fieldSpec, numDocs, numValues, maxNumValuesPerMVEntry, cardinality,
-            partitionFunction, partitions, minValue, maxValue, maxRowLengthInBytes),
-        new ColumnIndexContainer.FromMap.Builder()
-            .withAll(mutableIndexes)
-            .with(StandardIndexes.dictionary(), dictionary)
-            .with(StandardIndexes.nullValueVector(), nullValueVector)
+            estimatedCardinality, partitionFunction, partitions, minValue, maxValue, maxRowLengthInBytes),
+        new ColumnIndexContainer.FromMap.Builder().withAll(mutableIndexes)
+            .with(StandardIndexes.dictionary(), dictionary).with(StandardIndexes.nullValueVector(), nullValueVector)
             .build());
   }
 
@@ -58,6 +56,7 @@ public class MutableDataSource extends BaseDataSource {
     final int _numValues;
     final int _maxNumValuesPerMVEntry;
     final int _cardinality;
+    final int _estimatedCardinality;
     final PartitionFunction _partitionFunction;
     final Set<Integer> _partitions;
     final Comparable _minValue;
@@ -65,8 +64,9 @@ public class MutableDataSource extends BaseDataSource {
     final int _maxRowLengthInBytes;
 
     MutableDataSourceMetadata(FieldSpec fieldSpec, int numDocs, int numValues, int maxNumValuesPerMVEntry,
-        int cardinality, @Nullable PartitionFunction partitionFunction, @Nullable Set<Integer> partitions,
-        @Nullable Comparable minValue, @Nullable Comparable maxValue, int maxRowLengthInBytes) {
+        int cardinality, int estimatedCardinality, @Nullable PartitionFunction partitionFunction,
+        @Nullable Set<Integer> partitions, @Nullable Comparable minValue, @Nullable Comparable maxValue,
+        int maxRowLengthInBytes) {
       _fieldSpec = fieldSpec;
       _numDocs = numDocs;
       _numValues = numValues;
@@ -81,6 +81,7 @@ public class MutableDataSource extends BaseDataSource {
       _minValue = minValue;
       _maxValue = maxValue;
       _cardinality = cardinality;
+      _estimatedCardinality = estimatedCardinality;
       _maxRowLengthInBytes = maxRowLengthInBytes;
     }
 
@@ -136,6 +137,11 @@ public class MutableDataSource extends BaseDataSource {
     @Override
     public int getCardinality() {
       return _cardinality;
+    }
+
+    @Override
+    public int getEstimatedCardinality() {
+      return _estimatedCardinality;
     }
 
     @Override

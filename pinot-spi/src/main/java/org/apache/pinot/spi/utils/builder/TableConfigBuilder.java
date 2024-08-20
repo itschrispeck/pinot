@@ -109,7 +109,7 @@ public class TableConfigBuilder {
   // This threshold determines if dictionary should be enabled or not for a metric column and is relevant
   // only when _optimizeDictionaryForMetrics is set to true.
   private double _noDictionarySizeRatioThreshold;
-
+  private boolean _optimizeRaw;
   private TableCustomConfig _customConfig;
   private QuotaConfig _quotaConfig;
   private TableTaskConfig _taskConfig;
@@ -266,6 +266,11 @@ public class TableConfigBuilder {
 
   public TableConfigBuilder setNoDictionarySizeRatioThreshold(double noDictionarySizeRatioThreshold) {
     _noDictionarySizeRatioThreshold = noDictionarySizeRatioThreshold;
+    return this;
+  }
+
+  public TableConfigBuilder setOptimizeRaw(boolean optimizeRaw) {
+    _optimizeRaw = optimizeRaw;
     return this;
   }
 
@@ -466,6 +471,7 @@ public class TableConfigBuilder {
     indexingConfig.setAggregateMetrics(_aggregateMetrics);
     indexingConfig.setOptimizeDictionaryForMetrics(_optimizeDictionaryForMetrics);
     indexingConfig.setNoDictionarySizeRatioThreshold(_noDictionarySizeRatioThreshold);
+    indexingConfig.setOptimizeRaw(_optimizeRaw);
     indexingConfig.setTierOverwrites(_tierOverwrites);
 
     if (_customConfig == null) {

@@ -25,6 +25,7 @@ import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -210,6 +211,8 @@ public class ForwardIndexHandler extends BaseIndexHandler {
       boolean newIsFwd = newConf.getConfig(StandardIndexes.forward()).isEnabled();
       boolean newIsDict = newConf.getConfig(StandardIndexes.dictionary()).isEnabled();
       boolean newIsRange = newConf.getConfig(StandardIndexes.range()).isEnabled();
+      // collect all columns with dynamic forward index, and skip them when computing operations
+//      boolean newIsDynamic = newConf.getConfig(StandardIndexes.dynamic()).isEnabled();
 
       if (existingHasFwd && !newIsFwd) {
         // Existing column has a forward index. New column config disables the forward index
@@ -306,6 +309,10 @@ public class ForwardIndexHandler extends BaseIndexHandler {
         }
       } else if (existingHasDict && !newIsDict) {
         // Existing column has dictionary. New config for the column is RAW.
+        if (_tableConfig.getIndexingConfig().isOptimizeRaw()) {
+          // skip removing the dictionary if optimizeRaw was enabled
+          continue; // TODO: does not attempt optimize if segments are reloaded
+        }
         if (shouldDisableDictionary(column, _segmentDirectory.getSegmentMetadata().getColumnMetadataFor(column))) {
           columnOperationsMap.put(column, Collections.singletonList(Operation.DISABLE_DICTIONARY));
         }

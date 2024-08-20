@@ -20,13 +20,16 @@ package org.apache.pinot.segment.local.realtime.converter.stats;
 
 import com.google.common.base.Preconditions;
 import java.util.Map;
+import java.util.PriorityQueue;
 import java.util.Set;
+import java.util.stream.IntStream;
 import org.apache.pinot.segment.local.realtime.impl.forward.CLPMutableForwardIndex;
 import org.apache.pinot.segment.local.segment.creator.impl.stats.CLPStatsProvider;
 import org.apache.pinot.segment.spi.creator.ColumnStatistics;
 import org.apache.pinot.segment.spi.datasource.DataSource;
 import org.apache.pinot.segment.spi.datasource.DataSourceMetadata;
 import org.apache.pinot.segment.spi.index.mutable.MutableForwardIndex;
+import org.apache.pinot.segment.spi.index.reader.ForwardIndexReaderContext;
 import org.apache.pinot.segment.spi.partition.PartitionFunction;
 
 import static org.apache.pinot.segment.spi.Constants.UNKNOWN_CARDINALITY;
@@ -55,12 +58,30 @@ public class MutableNoDictionaryColStatistics implements ColumnStatistics, CLPSt
 
   @Override
   public Object getUniqueValuesSet() {
-    return null;
+
+    // TODO only if raw conversion is required
+    PriorityQueue<Object> pq = new PriorityQueue<>(_dataSourceMetadata.getCardinality());
+
+//    int[] docs = new int[_dataSourceMetadata.getNumDocs()];
+    int[] docIds = IntStream.rangeClosed(1, _dataSourceMetadata.getNumDocs()).toArray();
+    String[] values = new String[_dataSourceMetadata.getNumDocs()];
+
+    _forwardIndex.getString()
+    ForwardIndexReaderContext readerContext = _forwardIndex.createContext();
+
+    pq.add()
+
+    return null; // TODO get sorted unique values here??
   }
 
   @Override
   public int getCardinality() {
     return UNKNOWN_CARDINALITY;
+  }
+
+  @Override
+  public int getEstimatedCardinality() {
+    return _dataSourceMetadata.getEstimatedCardinality();
   }
 
   @Override

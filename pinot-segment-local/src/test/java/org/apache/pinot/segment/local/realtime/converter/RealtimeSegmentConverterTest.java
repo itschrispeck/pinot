@@ -48,6 +48,7 @@ import org.apache.pinot.segment.local.segment.virtualcolumn.VirtualColumnProvide
 import org.apache.pinot.segment.spi.ColumnMetadata;
 import org.apache.pinot.segment.spi.creator.SegmentVersion;
 import org.apache.pinot.segment.spi.index.DictionaryIndexConfig;
+import org.apache.pinot.segment.spi.index.ForwardIndexConfig;
 import org.apache.pinot.segment.spi.index.StandardIndexes;
 import org.apache.pinot.segment.spi.index.TextIndexConfig;
 import org.apache.pinot.segment.spi.index.column.ColumnIndexContainer;
@@ -73,6 +74,8 @@ import org.testng.annotations.Test;
 
 import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 
@@ -574,6 +577,122 @@ public class RealtimeSegmentConverterTest {
     } else {
       assertEquals(textIndexReader.getDocIds("str-8"), ImmutableRoaringBitmap.bitmapOf(7));
       assertEquals(textIndexReader.getDocIds("str-4"), ImmutableRoaringBitmap.bitmapOf(3));
+    }
+  }
+
+  @Test
+  public void testOptimizeRawDuringConversion()
+      throws Exception {
+    String lowCardinalityColumn = "lowCard";
+    String highCardinalityColumn = "highCard";
+    File tmpDir = new File(TMP_DIR, "tmp_" + System.currentTimeMillis());
+    TableConfig tableConfig =
+        new TableConfigBuilder(TableType.REALTIME).setTableName("testTable")
+            .setTimeColumnName(DATE_TIME_COLUMN)
+            .setNoDictionaryColumns(Lists.newArrayList(lowCardinalityColumn, highCardinalityColumn))
+            .setOptimizeRaw(true)
+            .build();
+    Schema schema = new Schema.SchemaBuilder()
+        .addSingleValueDimension(lowCardinalityColumn, FieldSpec.DataType.STRING)
+        .addSingleValueDimension(highCardinalityColumn, FieldSpec.DataType.STRING)
+        .addDateTime(DATE_TIME_COLUMN, FieldSpec.DataType.LONG, "1:MILLISECONDS:EPOCH", "1:MILLISECONDS")
+        .build();
+
+    List<FieldConfig> fieldConfigList = new ArrayList<>();
+    fieldConfigList.add(
+        new FieldConfig.Builder(lowCardinalityColumn).withEncodingType(FieldConfig.EncodingType.RAW).build());
+    fieldConfigList.add(
+        new FieldConfig.Builder(highCardinalityColumn).withEncodingType(FieldConfig.EncodingType.RAW).build());
+
+
+
+    String tableNameWithType = tableConfig.getTableName();
+    String segmentName = "testTable__0__0__123456";
+    IndexingConfig indexingConfig = tableConfig.getIndexingConfig();
+    RealtimeSegmentConfig.Builder realtimeSegmentConfigBuilder =
+        new RealtimeSegmentConfig.Builder().setTableNameWithType(tableNameWithType).setSegmentName(segmentName)
+            .setStreamName(tableNameWithType).setSchema(schema).setTimeColumnName(DATE_TIME_COLUMN).setCapacity(1000)
+            .setFieldConfigList(fieldConfigList)
+            .setIndex(lowCardinalityColumn, StandardIndexes.dictionary(), DictionaryIndexConfig.DISABLED)
+            .setIndex(highCardinalityColumn, StandardIndexes.dictionary(), DictionaryIndexConfig.DISABLED)
+//            .setIndex(lowCardinalityColumn, StandardIndexes.forward(), ForwardIndexConfig.DEFAULT)
+//            .setIndex(highCardinalityColumn, StandardIndexes.forward(), ForwardIndexConfig.DEFAULT)
+            .setSegmentZKMetadata(getSegmentZKMetadata(segmentName)).setOffHeap(true)
+            .setMemoryManager(new DirectMemoryManager(segmentName))
+            .setStatsHistory(RealtimeSegmentStatsHistory.deserialzeFrom(new File(tmpDir, "stats")))
+            .setConsumerDir(new File(tmpDir, "consumerDir").getAbsolutePath());
+
+    // create mutable segment impl
+    MutableSegmentImpl mutableSegmentImpl = new MutableSegmentImpl(realtimeSegmentConfigBuilder.build(), null);
+    List<GenericRow> rows = new ArrayList<>();
+    for (int i = 0; i < 1000; i++) {
+      GenericRow row = new GenericRow();
+      row.putValue(lowCardinalityColumn, "lowCard" + i / 100);
+      row.putValue(highCardinalityColumn, "highCard" + i);
+      row.putValue(DATE_TIME_COLUMN, 1697814309L + i);
+      rows.add(row);
+    }
+
+    // index all rows
+    for (GenericRow row : rows) {
+      mutableSegmentImpl.index(row, null);
+    }
+
+    File outputDir = new File(tmpDir, "outputDir");
+    SegmentZKPropsConfig segmentZKPropsConfig = new SegmentZKPropsConfig();
+    segmentZKPropsConfig.setStartOffset("1");
+    segmentZKPropsConfig.setEndOffset("10000");
+    ColumnIndicesForRealtimeTable cdc = new ColumnIndicesForRealtimeTable(null,
+        indexingConfig.getInvertedIndexColumns(), null, null, indexingConfig.getNoDictionaryColumns(),
+        indexingConfig.getVarLengthDictionaryColumns());
+    RealtimeSegmentConverter converter =
+        new RealtimeSegmentConverter(mutableSegmentImpl, segmentZKPropsConfig, outputDir.getAbsolutePath(), schema,
+            tableNameWithType, tableConfig, segmentName, cdc, false);
+    converter.build(SegmentVersion.v3, null);
+
+    File indexDir = new File(outputDir, segmentName);
+    SegmentMetadataImpl segmentMetadata = new SegmentMetadataImpl(indexDir);
+    assertEquals(segmentMetadata.getVersion(), SegmentVersion.v3);
+    assertEquals(segmentMetadata.getTotalDocs(), rows.size());
+    assertEquals(segmentMetadata.getTimeColumn(), DATE_TIME_COLUMN);
+    assertEquals(segmentMetadata.getTimeUnit(), TimeUnit.MILLISECONDS);
+
+    long expectedStartTime = (long) rows.get(0).getValue(DATE_TIME_COLUMN);
+    assertEquals(segmentMetadata.getStartTime(), expectedStartTime);
+    long expectedEndTime = (long) rows.get(rows.size() - 1).getValue(DATE_TIME_COLUMN);
+    assertEquals(segmentMetadata.getEndTime(), expectedEndTime);
+
+    assertTrue(segmentMetadata.getAllColumns().containsAll(schema.getColumnNames()));
+    assertEquals(segmentMetadata.getStartOffset(), "1");
+    assertEquals(segmentMetadata.getEndOffset(), "10000");
+
+//    testSegment(rows, indexDir, tableConfig, segmentMetadata);
+
+    SegmentLocalFSDirectory segmentDir = new SegmentLocalFSDirectory(indexDir, segmentMetadata, ReadMode.mmap);
+    SegmentDirectory.Reader segmentReader = segmentDir.createReader();
+
+    Map<String, ColumnIndexContainer> indexContainerMap = new HashMap<>();
+    Map<String, ColumnMetadata> columnMetadataMap = segmentMetadata.getColumnMetadataMap();
+    IndexLoadingConfig indexLoadingConfig = new IndexLoadingConfig(null, tableConfig);
+    for (Map.Entry<String, ColumnMetadata> entry : columnMetadataMap.entrySet()) {
+      indexContainerMap.put(entry.getKey(),
+          new PhysicalColumnIndexContainer(segmentReader, entry.getValue(), indexLoadingConfig));
+    }
+    ImmutableSegmentImpl segmentFile = new ImmutableSegmentImpl(segmentDir, segmentMetadata, indexContainerMap, null);
+
+    assertNotNull(segmentReader.getIndexFor(lowCardinalityColumn, StandardIndexes.forward()));
+    assertNotNull(segmentReader.getIndexFor(highCardinalityColumn, StandardIndexes.forward()));
+    assertNotNull(segmentReader.getIndexFor(lowCardinalityColumn, StandardIndexes.dictionary()));
+    assertNull(segmentReader.getIndexFor(highCardinalityColumn, StandardIndexes.dictionary()));
+
+    GenericRow readRow = new GenericRow();
+    int docId = 0;
+    for (GenericRow row : rows) {
+      segmentFile.getRecord(docId, readRow);
+      assertEquals(readRow.getValue(STRING_COLUMN1), row.getValue(STRING_COLUMN1));
+      assertEquals(readRow.getValue(STRING_COLUMN2), row.getValue(STRING_COLUMN2));
+
+      docId += 1;
     }
   }
 

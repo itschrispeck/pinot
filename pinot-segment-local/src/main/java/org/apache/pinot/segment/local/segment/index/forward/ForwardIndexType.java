@@ -317,4 +317,14 @@ public class ForwardIndexType extends AbstractIndexType<ForwardIndexConfig, Forw
       }
     }
   }
+
+  /**
+   * Return whether to force override raw encoding and create a dictionary for the column anyway.
+   */
+  public static boolean forceDictionaryOverride(boolean optimizeRaw, int estimatedCardinality, int numDocs) {
+    if (!optimizeRaw || estimatedCardinality < 0) {
+      return false; // skip overriding with dictionary encoding if not configured, or estimated cardinality is invalid
+    }
+    return (numDocs / estimatedCardinality) > 10; // dictionary encode only if cardinality is less than 10% of numDocs
+  }
 }

@@ -64,6 +64,7 @@ import org.apache.pinot.segment.local.upsert.ComparisonColumns;
 import org.apache.pinot.segment.local.upsert.PartitionUpsertMetadataManager;
 import org.apache.pinot.segment.local.upsert.RecordInfo;
 import org.apache.pinot.segment.local.utils.FixedIntArrayOffHeapIdMap;
+import org.apache.pinot.segment.local.utils.SamplingCardinalityEstimator;
 import org.apache.pinot.segment.local.utils.IdMap;
 import org.apache.pinot.segment.local.utils.IngestionUtils;
 import org.apache.pinot.segment.local.utils.TableConfigUtils;
@@ -348,9 +349,13 @@ public class MutableSegmentImpl implements MutableSegment {
       String sourceColumn = columnAggregatorPair.getLeft();
       ValueAggregator valueAggregator = columnAggregatorPair.getRight();
 
+      // Used to collect stats as data is ingested
+      // TODO only create if optimization is enabled
+      SamplingCardinalityEstimator samplingCardinalityEstimator = new SamplingCardinalityEstimator();
+
       _indexContainerMap.put(column,
           new IndexContainer(fieldSpec, partitionFunction, partitions, new ValuesInfo(), mutableIndexes, dictionary,
-              nullValueVector, sourceColumn, valueAggregator));
+              nullValueVector, sourceColumn, valueAggregator, samplingCardinalityEstimator));
     }
 
     _partitionDedupMetadataManager = config.getPartitionDedupMetadataManager();
@@ -652,6 +657,10 @@ public class MutableSegmentImpl implements MutableSegment {
         // of the dictionary id if this somehow happens. An NPE here can corrupt indexes leading to incorrect query
         // results, hence the extra care. A metric will already have been emitted when trying to update the dictionary.
         continue;
+      }
+
+      if (indexContainer._samplingCardinalityEstimator != null) {
+        indexContainer._samplingCardinalityEstimator.add(row.getValue(column));
       }
 
       FieldSpec fieldSpec = indexContainer._fieldSpec;
@@ -1268,6 +1277,7 @@ public class MutableSegmentImpl implements MutableSegment {
     final Map<IndexType, MutableIndex> _mutableIndexes;
     final String _sourceColumn;
     final ValueAggregator _valueAggregator;
+    final SamplingCardinalityEstimator _samplingCardinalityEstimator;
 
     volatile Comparable _minValue;
     volatile Comparable _maxValue;
@@ -1286,7 +1296,8 @@ public class MutableSegmentImpl implements MutableSegment {
     IndexContainer(FieldSpec fieldSpec, @Nullable PartitionFunction partitionFunction,
         @Nullable Set<Integer> partitions, ValuesInfo valuesInfo, Map<IndexType, MutableIndex> mutableIndexes,
         @Nullable MutableDictionary dictionary, @Nullable MutableNullValueVector nullValueVector,
-        @Nullable String sourceColumn, @Nullable ValueAggregator valueAggregator) {
+        @Nullable String sourceColumn, @Nullable ValueAggregator valueAggregator,
+        @Nullable SamplingCardinalityEstimator samplingCardinalityEstimator) {
       Preconditions.checkArgument(mutableIndexes.containsKey(StandardIndexes.forward()), "Forward index is required");
       _fieldSpec = fieldSpec;
       _mutableIndexes = mutableIndexes;
@@ -1297,11 +1308,13 @@ public class MutableSegmentImpl implements MutableSegment {
       _valuesInfo = valuesInfo;
       _sourceColumn = sourceColumn;
       _valueAggregator = valueAggregator;
+      _samplingCardinalityEstimator = samplingCardinalityEstimator;
     }
 
     DataSource toDataSource() {
       return new MutableDataSource(_fieldSpec, _numDocsIndexed, _valuesInfo._numValues,
-          _valuesInfo._maxNumValuesPerMVEntry, _dictionary == null ? -1 : _dictionary.length(), _partitionFunction,
+          _valuesInfo._maxNumValuesPerMVEntry, _dictionary == null ? -1 : _dictionary.length(),
+          _samplingCardinalityEstimator.getEstimatedCardinality(), _partitionFunction,
           _partitions, _minValue, _maxValue, _mutableIndexes, _dictionary, _nullValueVector,
           _valuesInfo._varByteMVMaxRowLengthInBytes);
     }
