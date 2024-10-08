@@ -86,13 +86,13 @@ import org.slf4j.LoggerFactory;
 public class MutableOffHeapByteArrayStore implements Closeable {
   private static final Logger LOGGER = LoggerFactory.getLogger(MutableOffHeapByteArrayStore.class);
 
-  private static class Buffer implements Closeable {
-    private final PinotDataBuffer _pinotDataBuffer;
+  protected static class Buffer implements Closeable {
+    protected final PinotDataBuffer _pinotDataBuffer;
     private final int _startIndex;
     private final int _size;
 
-    private int _numValues = 0;
-    private int _availEndOffset;  // Exclusive
+    protected int _numValues = 0;
+    protected int _availEndOffset;  // Exclusive
 
     private Buffer(int size, int startIndex, PinotDataBufferMemoryManager memoryManager, String allocationContext) {
       LOGGER.info("Allocating byte array store buffer of size {} for: {}", size, allocationContext);
@@ -146,11 +146,18 @@ public class MutableOffHeapByteArrayStore implements Closeable {
       return value;
     }
 
-    private int getSize() {
+    protected int getSize() {
       return _size;
     }
+    protected int getAvailEndOffset() {
+      return _availEndOffset;
+    }
 
-    private int getStartIndex() {
+    protected int getNumValues() {
+      return _numValues;
+    }
+
+    protected int getStartIndex() {
       return _startIndex;
     }
 
@@ -161,12 +168,12 @@ public class MutableOffHeapByteArrayStore implements Closeable {
     }
   }
 
-  private volatile List<Buffer> _buffers = new LinkedList<>();
-  private int _numElements = 0;
+  protected volatile List<Buffer> _buffers = new LinkedList<>();
+  protected volatile int _numElements = 0; // volatile required for CachingMutableOffHeapByteArrayStore
   private volatile Buffer _currentBuffer;
   private final PinotDataBufferMemoryManager _memoryManager;
   private final String _allocationContext;
-  private long _totalStringSize = 0;
+  protected long _totalStringSize = 0;
   private final int _startSize;
 
   @VisibleForTesting
@@ -194,7 +201,7 @@ public class MutableOffHeapByteArrayStore implements Closeable {
    * @param size Size of the expanded buffer
    * @return Expanded buffer
    */
-  private Buffer expand(int size) {
+  protected Buffer expand(int size) {
     Buffer buffer = new Buffer(size, _numElements, _memoryManager, _allocationContext);
     List<Buffer> newList = new LinkedList<>(_buffers);
     newList.add(buffer);
@@ -235,7 +242,8 @@ public class MutableOffHeapByteArrayStore implements Closeable {
     }
     _totalStringSize += valueLength;
     _numElements++;
-    return index + buffer.getStartIndex();
+//    return index + buffer.getStartIndex();
+    return _numElements - 1;
   }
 
   public boolean equalsValueAt(byte[] value, int index) {
@@ -270,5 +278,17 @@ public class MutableOffHeapByteArrayStore implements Closeable {
       return _totalStringSize / _numElements;
     }
     return 0;
+  }
+
+  protected Buffer getCurrentBuffer() {
+    return _currentBuffer;
+  }
+
+  protected void incrementNumElements(int increment) {
+    _numElements += increment; // non-atomic write is fine due to the single writer guarantee provided by this class
+  }
+
+  protected int getNumElements() {
+    return _numElements;
   }
 }

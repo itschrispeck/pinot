@@ -25,7 +25,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.Arrays;
 import org.apache.pinot.common.request.context.predicate.RangePredicate;
-import org.apache.pinot.segment.local.io.writer.impl.MutableOffHeapByteArrayStore;
+import org.apache.pinot.segment.local.io.writer.impl.MutableCachingOffHeapByteArrayStore;
 import org.apache.pinot.segment.spi.memory.PinotDataBufferMemoryManager;
 import org.apache.pinot.spi.data.FieldSpec.DataType;
 
@@ -34,7 +34,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 @SuppressWarnings("Duplicates")
 public class StringOffHeapMutableDictionary extends BaseOffHeapMutableDictionary {
-  private final MutableOffHeapByteArrayStore _byteStore;
+  private final MutableCachingOffHeapByteArrayStore _byteStore;
 
   private volatile String _min = null;
   private volatile String _max = null;
@@ -42,7 +42,8 @@ public class StringOffHeapMutableDictionary extends BaseOffHeapMutableDictionary
   public StringOffHeapMutableDictionary(int estimatedCardinality, int maxOverflowHashSize,
       PinotDataBufferMemoryManager memoryManager, String allocationContext, int avgStringLen) {
     super(estimatedCardinality, maxOverflowHashSize, memoryManager, allocationContext);
-    _byteStore = new MutableOffHeapByteArrayStore(memoryManager, allocationContext, estimatedCardinality, avgStringLen);
+    _byteStore =
+        new MutableCachingOffHeapByteArrayStore(memoryManager, allocationContext, estimatedCardinality, avgStringLen);
   }
 
   @Override
