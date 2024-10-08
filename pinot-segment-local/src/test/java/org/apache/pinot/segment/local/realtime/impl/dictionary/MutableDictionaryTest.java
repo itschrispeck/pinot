@@ -99,9 +99,15 @@ public class MutableDictionaryTest {
           "intColumn")) {
         testMultiReadersSingleWriter(dictionary, FieldSpec.DataType.INT);
       }
-      try (MutableDictionary dictionary = new StringOffHeapMutableDictionary(EST_CARDINALITY, 2000, _memoryManager,
-          "stringColumn", 32)) {
-        testMultiReadersSingleWriter(dictionary, FieldSpec.DataType.STRING);
+      for (int i = 0; i < 1000; i++) {
+        try (PinotDataBufferMemoryManager memoryManager = new DirectMemoryManager(MutableDictionaryTest.class.getName() + i)
+            ) {
+          try (MutableDictionary dictionary = new StringOffHeapMutableDictionary(EST_CARDINALITY, 2000, memoryManager,
+              "stringColumn", 32)) {
+            testMultiReadersSingleWriter(dictionary, FieldSpec.DataType.STRING);
+          }
+          System.out.println("success");
+        }
       }
     } catch (Throwable t) {
       Assert.fail("Failed with random seed: " + RANDOM_SEED, t);
