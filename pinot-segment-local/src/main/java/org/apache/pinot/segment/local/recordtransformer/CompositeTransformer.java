@@ -109,6 +109,7 @@ public class CompositeTransformer implements RecordTransformer {
     addIfNotNoOp(transformers, new SpecialValueTransformer(schema));
     addIfNotNoOp(transformers, new NullValueTransformer(tableConfig, schema));
     addIfNotNoOp(transformers, new SanitizationTransformer(schema));
+    addIfNotNoOp(transformers, new TimeSeriesTransformer(tableConfig));
     return transformers;
   }
 

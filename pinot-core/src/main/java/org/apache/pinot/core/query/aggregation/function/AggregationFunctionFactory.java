@@ -481,6 +481,8 @@ public class AggregationFunctionFactory {
             return new DistinctCountRawULLAggregationFunction(arguments);
           case TIMESERIESAGGREGATE:
             return new TimeSeriesAggregationFunction(arguments);
+          case TIMESERIESINDEXAGGREGATE:
+            return new TimeSeriesIndexAggregationFunction(arguments);
           default:
             throw new IllegalArgumentException("Unsupported aggregation function type: " + functionType);
         }

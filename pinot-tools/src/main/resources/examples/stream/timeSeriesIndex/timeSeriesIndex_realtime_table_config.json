@@ -1,0 +1,48 @@
+{
+  "tableName": "timeSeriesIndex",
+  "tableType": "REALTIME",
+  "tenants": {},
+  "segmentsConfig": {
+    "timeColumnName": "timestamp",
+    "replication": "1"
+  },
+  "tableIndexConfig": {
+    "segmentNameGeneratorType": "normalizedDate"
+  },
+  "fieldConfigList": [
+    {
+        "name": "indexCol",
+        "indexes": {
+          "timeseries": {
+            "enabled": true
+          }
+        }
+    }
+  ],
+  "ingestionConfig": {
+    "streamIngestionConfig": {
+      "streamConfigMaps": [
+        {
+          "streamType": "kafka",
+          "stream.kafka.topic.name": "timeSeriesIndex",
+          "stream.kafka.decoder.class.name": "org.apache.pinot.plugin.stream.kafka.KafkaJSONMessageDecoder",
+          "stream.kafka.consumer.factory.class.name": "org.apache.pinot.plugin.stream.kafka20.KafkaConsumerFactory",
+          "stream.kafka.consumer.prop.auto.offset.reset": "smallest",
+          "stream.kafka.zk.broker.url": "localhost:2191/kafka",
+          "stream.kafka.broker.list": "localhost:19092",
+          "realtime.segment.flush.threshold.time": "1h",
+          "realtime.segment.flush.threshold.size": "50"
+        }
+      ]
+    },
+    "timeSeriesTransformerConfig": {
+      "tagsJsonField": "tagsJson",
+      "valueField": "value",
+      "timestampField": "timestamp",
+      "timeSeriesColumn": "indexCol"
+    }
+  },
+  "metadata": {
+    "customConfigs": {}
+  }
+}

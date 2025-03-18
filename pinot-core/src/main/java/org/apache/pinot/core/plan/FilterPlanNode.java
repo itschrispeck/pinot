@@ -32,6 +32,7 @@ import org.apache.pinot.common.request.context.predicate.Predicate;
 import org.apache.pinot.common.request.context.predicate.RegexpLikePredicate;
 import org.apache.pinot.common.request.context.predicate.TextContainsPredicate;
 import org.apache.pinot.common.request.context.predicate.TextMatchPredicate;
+import org.apache.pinot.common.request.context.predicate.TimeSeriesPredicate;
 import org.apache.pinot.common.request.context.predicate.VectorSimilarityPredicate;
 import org.apache.pinot.core.geospatial.transform.function.StDistanceFunction;
 import org.apache.pinot.core.operator.filter.BaseFilterOperator;
@@ -45,6 +46,7 @@ import org.apache.pinot.core.operator.filter.JsonMatchFilterOperator;
 import org.apache.pinot.core.operator.filter.MatchAllFilterOperator;
 import org.apache.pinot.core.operator.filter.TextContainsFilterOperator;
 import org.apache.pinot.core.operator.filter.TextMatchFilterOperator;
+import org.apache.pinot.core.operator.filter.TimeSeriesFilterOperator;
 import org.apache.pinot.core.operator.filter.VectorSimilarityFilterOperator;
 import org.apache.pinot.core.operator.filter.predicate.FSTBasedRegexpPredicateEvaluatorFactory;
 import org.apache.pinot.core.operator.filter.predicate.PredicateEvaluator;
@@ -58,6 +60,7 @@ import org.apache.pinot.segment.spi.datasource.DataSource;
 import org.apache.pinot.segment.spi.index.reader.JsonIndexReader;
 import org.apache.pinot.segment.spi.index.reader.NullValueVectorReader;
 import org.apache.pinot.segment.spi.index.reader.TextIndexReader;
+import org.apache.pinot.segment.spi.index.reader.TimeSeriesIndexReader;
 import org.apache.pinot.segment.spi.index.reader.VectorIndexReader;
 import org.apache.pinot.spi.config.table.FieldConfig;
 import org.apache.pinot.spi.exception.BadQueryRequestException;
@@ -305,6 +308,11 @@ public class FilterPlanNode implements PlanNode {
               } else {
                 return new MatchAllFilterOperator(numDocs);
               }
+            case TIME_SERIES_MATCH:
+              TimeSeriesIndexReader<?> timeSeriesIndexReader = dataSource.getTimeSeriesIndex();
+              Preconditions.checkState(timeSeriesIndexReader != null,
+                  "Cannot apply TIME_SERIES_MATCH on column: %s without time series index", column);
+              return new TimeSeriesFilterOperator(numDocs, timeSeriesIndexReader, (TimeSeriesPredicate) predicate);
             default:
               predicateEvaluator =
                   PredicateEvaluatorProvider.getPredicateEvaluator(predicate, dataSource, _queryContext);

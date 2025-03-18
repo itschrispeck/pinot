@@ -18,6 +18,7 @@
  */
 package org.apache.pinot.core.operator.timeseries;
 
+import it.unimi.dsi.fastutil.Pair;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -29,6 +30,8 @@ import org.apache.pinot.common.utils.DataSchema;
 import org.apache.pinot.core.data.table.Record;
 import org.apache.pinot.core.operator.blocks.results.AggregationResultsBlock;
 import org.apache.pinot.core.operator.blocks.results.GroupByResultsBlock;
+import org.apache.pinot.core.operator.transform.function.TimeSeriesIndexTagSetTransformFunction;
+import org.apache.pinot.segment.local.utils.timeseries.TimeSeriesUtils;
 import org.apache.pinot.tsdb.spi.TimeBuckets;
 import org.apache.pinot.tsdb.spi.series.BaseTimeSeriesBuilder;
 import org.apache.pinot.tsdb.spi.series.TimeSeries;
@@ -48,6 +51,9 @@ public class TimeSeriesOperatorUtils {
     Map<Long, List<TimeSeries>> timeSeriesMap = new HashMap<>(groupByResultsBlock.getNumRows());
     List<String> tagNames = getTagNamesFromDataSchema(Objects.requireNonNull(groupByResultsBlock.getDataSchema(),
         "DataSchema is null in leaf stage of time-series query"));
+    boolean shouldExtractTagsFromRecord = tagNames.size() == 1 && tagNames.get(0).startsWith(
+        TimeSeriesIndexTagSetTransformFunction.FUNCTION_NAME.toLowerCase());
+
     Iterator<Record> recordIterator = groupByResultsBlock.getTable().iterator();
     while (recordIterator.hasNext()) {
       Record record = recordIterator.next();
@@ -59,7 +65,13 @@ public class TimeSeriesOperatorUtils {
       BaseTimeSeriesBuilder seriesBuilder = (BaseTimeSeriesBuilder) recordValues[recordValues.length - 1];
       long seriesHash = TimeSeries.hash(tagValues);
       List<TimeSeries> timeSeriesList = new ArrayList<>(1);
-      timeSeriesList.add(seriesBuilder.buildWithTagOverrides(tagNames, tagValues));
+
+      if (shouldExtractTagsFromRecord) {
+        Pair<List<String>, Object[]> tagNamesAndValues = getTagNamesAndValuesFromRecord(record);
+        timeSeriesList.add(seriesBuilder.buildWithTagOverrides(tagNamesAndValues.left(), tagNamesAndValues.right()));
+      } else {
+        timeSeriesList.add(seriesBuilder.buildWithTagOverrides(tagNames, tagValues));
+      }
       timeSeriesMap.put(seriesHash, timeSeriesList);
     }
     return new TimeSeriesBlock(timeBuckets, timeSeriesMap);
@@ -79,6 +91,9 @@ public class TimeSeriesOperatorUtils {
     return new TimeSeriesBlock(timeBuckets, timeSeriesMap);
   }
 
+  /**
+   * Assumes that the last column is the TimeSeries column, and all other columns are tag columns.
+   */
   private static List<String> getTagNamesFromDataSchema(DataSchema dataSchema) {
     String[] columnNames = dataSchema.getColumnNames();
     int numTags = columnNames.length - 1;
@@ -87,5 +102,31 @@ public class TimeSeriesOperatorUtils {
       tagNames.add(columnNames[index]);
     }
     return tagNames;
+  }
+
+  /**
+   * Assumes that the last column is the TimeSeries column, and the first column is the output of the
+   * TimeSeriesIndexTagSetTransformFunction
+   */
+  private static Pair<List<String>, Object[]> getTagNamesAndValuesFromRecord(Record record) {
+    Object[] recordValues = record.getValues();
+    String tagSet = recordValues[0].toString();
+    String[] tagSetArray = tagSet.split(TimeSeriesUtils.TAG_DELIMITER);
+    int numTagPairs = tagSetArray.length;
+    List<String> tagNames = new ArrayList<>(numTagPairs);
+    Object[] tagValues = new Object[numTagPairs];
+
+    for (int i = 0; i < numTagPairs; i++) {
+      String tagValuePair = tagSetArray[i];
+      int delimiterIndex = tagValuePair.indexOf(TimeSeriesUtils.TAG_VALUE_DELIMITER);
+//      if (delimiterIndex < 0) {
+//        continue;
+//      }
+      String tagName = tagValuePair.substring(0, delimiterIndex);
+      String tagValue = tagValuePair.substring(delimiterIndex + 1);
+      tagNames.add(tagName);
+      tagValues[tagNames.size() - 1] = tagValue;
+    }
+    return Pair.of(tagNames, tagValues);
   }
 }

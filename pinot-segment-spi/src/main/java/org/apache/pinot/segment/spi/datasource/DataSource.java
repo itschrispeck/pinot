@@ -32,6 +32,7 @@ import org.apache.pinot.segment.spi.index.reader.MapIndexReader;
 import org.apache.pinot.segment.spi.index.reader.NullValueVectorReader;
 import org.apache.pinot.segment.spi.index.reader.RangeIndexReader;
 import org.apache.pinot.segment.spi.index.reader.TextIndexReader;
+import org.apache.pinot.segment.spi.index.reader.TimeSeriesIndexReader;
 import org.apache.pinot.segment.spi.index.reader.VectorIndexReader;
 
 
@@ -130,4 +131,7 @@ public interface DataSource {
    */
   @Nullable
   MapIndexReader getMapIndex();
+
+  @Nullable
+  TimeSeriesIndexReader<?> getTimeSeriesIndex();
 }

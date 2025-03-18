@@ -39,7 +39,8 @@ public interface Predicate {
     JSON_MATCH,
     IS_NULL,
     IS_NOT_NULL(true),
-    VECTOR_SIMILARITY;
+    VECTOR_SIMILARITY,
+    TIME_SERIES_MATCH;
 
     private final boolean _exclusive;
 

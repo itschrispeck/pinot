@@ -388,6 +388,18 @@ public class MutableSegmentImpl implements MutableSegment {
         }
       }
 
+      // TODO remove this after we formally add support for disabling the forward index in the consuming segment
+      // Disables the forward index, if time series index is enabled
+      if (!indexConfigs.getConfig(StandardIndexes.timeSeries()).isDisabled()) {
+        if (dictionary == null) {
+          MutableIndex forwardIndex = mutableIndexes.get(StandardIndexes.forward());
+          mutableIndexes.put(StandardIndexes.forward(),
+              new SameValueMutableForwardIndex("\u0000", (MutableForwardIndex) forwardIndex));
+        } else {
+          dictionary = new SameValueMutableDictionary("\u0000", dictionary);
+        }
+      }
+
       _indexContainerMap.put(column,
           new IndexContainer(fieldSpec, partitionFunction, partitions, new ValuesInfo(), mutableIndexes, dictionary,
               nullValueVector, sourceColumn, valueAggregator));

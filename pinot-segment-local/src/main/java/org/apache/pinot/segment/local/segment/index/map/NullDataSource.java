@@ -39,6 +39,7 @@ import org.apache.pinot.segment.spi.index.reader.MapIndexReader;
 import org.apache.pinot.segment.spi.index.reader.NullValueVectorReader;
 import org.apache.pinot.segment.spi.index.reader.RangeIndexReader;
 import org.apache.pinot.segment.spi.index.reader.TextIndexReader;
+import org.apache.pinot.segment.spi.index.reader.TimeSeriesIndexReader;
 import org.apache.pinot.segment.spi.index.reader.VectorIndexReader;
 import org.apache.pinot.segment.spi.partition.PartitionFunction;
 import org.apache.pinot.spi.data.DimensionFieldSpec;
@@ -143,6 +144,12 @@ public class NullDataSource implements DataSource {
   @Override
   public MapIndexReader getMapIndex() {
     return getIndex(StandardIndexes.map());
+  }
+
+  @Nullable
+  @Override
+  public TimeSeriesIndexReader getTimeSeriesIndex() {
+    return getIndex(StandardIndexes.timeSeries());
   }
 
   public static class NullDataSourceMetadata implements DataSourceMetadata {
