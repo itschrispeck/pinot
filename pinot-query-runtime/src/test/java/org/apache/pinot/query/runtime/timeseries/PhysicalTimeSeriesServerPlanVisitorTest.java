@@ -101,6 +101,37 @@ public class PhysicalTimeSeriesServerPlanVisitorTest {
     }
   }
 
+  @Test
+  public void testCompileQueryContextForTimeSeriesIndex() {
+    final String planId = "id";
+    final String tableName = "indexedTable";
+    final String valueExpression = "timeSeriesIndexValues(indexCol)";
+    final String timeExpression = "timeSeriesIndexTimestamps(indexCol)";
+    final String filterExpression = "timeSeriesMatch(indexCol, 'tag1')";
+    final AggInfo aggInfo = new AggInfo("SUM", false, Collections.emptyMap());
+
+    PhysicalTimeSeriesServerPlanVisitor serverPlanVisitor = new PhysicalTimeSeriesServerPlanVisitor(
+        mock(QueryExecutor.class), mock(ExecutorService.class), mock(ServerMetrics.class));
+
+    TimeSeriesExecutionContext context =
+        new TimeSeriesExecutionContext("m3ql", TimeBuckets.ofSeconds(1000L, Duration.ofSeconds(10), 100),
+            DUMMY_DEADLINE_MS, Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap());
+
+    LeafTimeSeriesPlanNode leafNode =
+        new LeafTimeSeriesPlanNode(planId, Collections.emptyList(), tableName, timeExpression, TimeUnit.SECONDS, 0L,
+            filterExpression, valueExpression, aggInfo, Collections.singletonList("cityName"), SERIES_LIMIT,
+            QUERY_OPTIONS);
+
+    QueryContext queryContext = serverPlanVisitor.compileQueryContext(leafNode, context);
+    assertEquals(queryContext.getFilter().toString(),
+        "time_series_match(indexCol,'tag1')");
+    assertEquals(queryContext.getSelectExpressions().get(0).toString(),
+        "timeseriesindexaggregate('m3ql','SUM',timeseriesindexvalues(indexCol),timeseriesindextimestamps(indexCol),"
+            + "'SECONDS','0','1000','10','100','')");
+    assertTrue(isNumber(queryContext.getQueryOptions().get(QueryOptionKey.TIMEOUT_MS)));
+    assertEquals(queryContext.getLimit(), SERIES_LIMIT);
+  }
+
   private boolean isNumber(String s) {
     try {
       Long.parseLong(s);

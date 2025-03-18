@@ -248,7 +248,10 @@ public enum TransformFunctionType {
   // Complex type handling
   ITEM("item"),
   // Time series functions
-  TIME_SERIES_BUCKET("timeSeriesBucket");
+  TIME_SERIES_BUCKET("timeSeriesBucket"),
+  TIME_SERIES_INDEX_TAG_SET("timeSeriesIndexTagSet"),
+  TIME_SERIES_INDEX_VALUES("timeSeriesIndexValues"),
+  TIME_SERIES_INDEX_TIMESTAMPS("timeSeriesIndexTimestamps");
 
   private final String _name;
   private final List<String> _names;

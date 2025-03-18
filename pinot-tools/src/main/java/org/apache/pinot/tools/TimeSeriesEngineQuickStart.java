@@ -20,11 +20,14 @@ package org.apache.pinot.tools;
 
 import com.google.common.base.Preconditions;
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.commons.io.FileUtils;
+import org.apache.pinot.tools.admin.PinotAdministrator;
 import org.apache.pinot.tools.admin.command.QuickstartRunner;
 import org.apache.pinot.tsdb.spi.PinotTimeSeriesConfiguration;
 import org.apache.pinot.tsdb.spi.series.SimpleTimeSeriesBuilderFactory;
@@ -46,6 +49,14 @@ public class TimeSeriesEngineQuickStart extends Quickstart {
       "examples/batch/starbucksStores",
       "examples/batch/fineFoodReviews",
   };
+
+  public static void main(String[] args)
+      throws Exception {
+    List<String> arguments = new ArrayList<>();
+    arguments.addAll(Arrays.asList("QuickStart", "-type", "TIME_SERIES"));
+    arguments.addAll(Arrays.asList(args));
+    PinotAdministrator.main(arguments.toArray(new String[arguments.size()]));
+  }
 
   @Override
   public String[] getDefaultBatchTableDirectories() {

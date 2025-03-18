@@ -31,6 +31,7 @@ import org.apache.pinot.common.request.context.ExpressionContext;
 import org.apache.pinot.common.request.context.FilterContext;
 import org.apache.pinot.common.request.context.RequestContextUtils;
 import org.apache.pinot.core.query.aggregation.function.TimeSeriesAggregationFunction;
+import org.apache.pinot.core.query.aggregation.function.TimeSeriesIndexAggregationFunction;
 import org.apache.pinot.core.query.executor.QueryExecutor;
 import org.apache.pinot.core.query.request.ServerQueryRequest;
 import org.apache.pinot.core.query.request.context.QueryContext;
@@ -106,9 +107,21 @@ public class PhysicalTimeSeriesServerPlanVisitor {
         .map(RequestContextUtils::getExpression).collect(Collectors.toList());
     TimeBuckets timeBuckets = context.getInitialTimeBuckets();
     ExpressionContext rawTimeValuesInLong = RequestContextUtils.getExpression(leafNode.getTimeColumn());
-    ExpressionContext aggregation = TimeSeriesAggregationFunction.create(context.getLanguage(),
-        leafNode.getValueExpression(), rawTimeValuesInLong, leafNode.getTimeUnit(),
-        leafNode.getOffsetSeconds() == null ? 0 : leafNode.getOffsetSeconds(), timeBuckets, leafNode.getAggInfo());
+
+    // TODO this is a hack to use the timeSeriesIndex for the aggregation function if arguments indicate it should
+    // be used. For testing only, must be changed.
+    ExpressionContext aggregation;
+    if (leafNode.getTimeColumn().startsWith("timeSeriesIndexTimestamps")) {
+      // Note: leafNode.getTimeColumn() is the expression string `timeSeriesIndexTimestamps(indexCol)` in this case
+      aggregation = TimeSeriesIndexAggregationFunction.create(context.getLanguage(), leafNode.getValueExpression(),
+          leafNode.getTimeColumn(), leafNode.getTimeUnit(),
+          leafNode.getOffsetSeconds() == null ? 0 : leafNode.getOffsetSeconds(), timeBuckets,
+          leafNode.getAggInfo());
+    } else {
+      aggregation = TimeSeriesAggregationFunction.create(context.getLanguage(), leafNode.getValueExpression(),
+          rawTimeValuesInLong, leafNode.getTimeUnit(),
+          leafNode.getOffsetSeconds() == null ? 0 : leafNode.getOffsetSeconds(), timeBuckets, leafNode.getAggInfo());
+    }
     Map<String, String> queryOptions = new HashMap<>(leafNode.getQueryOptions());
     queryOptions.put(QueryOptionKey.TIMEOUT_MS, Long.toString(Math.max(0L, context.getRemainingTimeMs())));
     return new QueryContext.Builder()

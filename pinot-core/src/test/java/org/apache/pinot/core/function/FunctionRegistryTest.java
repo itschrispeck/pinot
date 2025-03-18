@@ -49,10 +49,12 @@ public class FunctionRegistryTest {
       TransformFunctionType.ARRAY_SUM, TransformFunctionType.VALUE_IN, TransformFunctionType.IN_ID_SET,
       TransformFunctionType.GROOVY, TransformFunctionType.CLP_DECODE, TransformFunctionType.CLP_ENCODED_VARS_MATCH,
       TransformFunctionType.ST_POLYGON, TransformFunctionType.ST_AREA, TransformFunctionType.ITEM,
-      TransformFunctionType.TIME_SERIES_BUCKET);
+      TransformFunctionType.TIME_SERIES_BUCKET, TransformFunctionType.TIME_SERIES_INDEX_TAG_SET,
+      TransformFunctionType.TIME_SERIES_INDEX_VALUES, TransformFunctionType.TIME_SERIES_INDEX_TIMESTAMPS);
   private static final EnumSet<FilterKind> IGNORED_FILTER_KINDS = EnumSet.of(
       // Special filter functions without implementation
       FilterKind.TEXT_MATCH, FilterKind.TEXT_CONTAINS, FilterKind.JSON_MATCH, FilterKind.VECTOR_SIMILARITY,
+      FilterKind.TIME_SERIES_MATCH,
       // TODO: Support these functions
       FilterKind.AND, FilterKind.OR, FilterKind.RANGE, FilterKind.IN, FilterKind.NOT_IN);
 

@@ -29,6 +29,7 @@ import org.apache.pinot.segment.spi.index.creator.H3IndexConfig;
 import org.apache.pinot.segment.spi.index.creator.JsonIndexCreator;
 import org.apache.pinot.segment.spi.index.creator.MapIndexCreator;
 import org.apache.pinot.segment.spi.index.creator.TextIndexCreator;
+import org.apache.pinot.segment.spi.index.creator.TimeSeriesIndexCreator;
 import org.apache.pinot.segment.spi.index.creator.VectorIndexConfig;
 import org.apache.pinot.segment.spi.index.creator.VectorIndexCreator;
 import org.apache.pinot.segment.spi.index.reader.BloomFilterReader;
@@ -41,11 +42,13 @@ import org.apache.pinot.segment.spi.index.reader.MapIndexReader;
 import org.apache.pinot.segment.spi.index.reader.NullValueVectorReader;
 import org.apache.pinot.segment.spi.index.reader.RangeIndexReader;
 import org.apache.pinot.segment.spi.index.reader.TextIndexReader;
+import org.apache.pinot.segment.spi.index.reader.TimeSeriesIndexReader;
 import org.apache.pinot.segment.spi.index.reader.VectorIndexReader;
 import org.apache.pinot.spi.config.table.BloomFilterConfig;
 import org.apache.pinot.spi.config.table.IndexConfig;
 import org.apache.pinot.spi.config.table.JsonIndexConfig;
 import org.apache.pinot.spi.config.table.MapIndexConfig;
+import org.apache.pinot.spi.config.table.TimeSeriesIndexConfig;
 
 
 /**
@@ -82,6 +85,7 @@ public class StandardIndexes {
   public static final String H3_ID = "h3_index";
   public static final String VECTOR_ID = "vector_index";
   public static final String MAP_ID = "map_index";
+  public static final String TIME_SERIES_ID = "time_series_index";
 
   private StandardIndexes() {
   }
@@ -144,5 +148,10 @@ public class StandardIndexes {
   public static IndexType<MapIndexConfig, MapIndexReader, MapIndexCreator> map() {
     return (IndexType<MapIndexConfig, MapIndexReader, MapIndexCreator>)
         IndexService.getInstance().get(MAP_ID);
+  }
+
+  public static IndexType<TimeSeriesIndexConfig, TimeSeriesIndexReader, TimeSeriesIndexCreator> timeSeries() {
+    return (IndexType<TimeSeriesIndexConfig, TimeSeriesIndexReader, TimeSeriesIndexCreator>)
+        IndexService.getInstance().get(TIME_SERIES_ID);
   }
 }

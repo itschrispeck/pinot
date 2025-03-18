@@ -18,6 +18,7 @@
  */
 package org.apache.pinot.segment.local.realtime.converter;
 
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import java.io.File;
@@ -26,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -48,6 +50,7 @@ import org.apache.pinot.segment.local.segment.index.loader.IndexLoadingConfig;
 import org.apache.pinot.segment.local.segment.index.text.TextIndexConfigBuilder;
 import org.apache.pinot.segment.local.segment.store.SegmentLocalFSDirectory;
 import org.apache.pinot.segment.local.segment.virtualcolumn.VirtualColumnProviderFactory;
+import org.apache.pinot.segment.local.utils.timeseries.TimeSeriesUtils;
 import org.apache.pinot.segment.spi.ColumnMetadata;
 import org.apache.pinot.segment.spi.creator.SegmentVersion;
 import org.apache.pinot.segment.spi.index.DictionaryIndexConfig;
@@ -55,17 +58,21 @@ import org.apache.pinot.segment.spi.index.StandardIndexes;
 import org.apache.pinot.segment.spi.index.TextIndexConfig;
 import org.apache.pinot.segment.spi.index.column.ColumnIndexContainer;
 import org.apache.pinot.segment.spi.index.metadata.SegmentMetadataImpl;
+import org.apache.pinot.segment.spi.index.reader.ForwardIndexReaderContext;
 import org.apache.pinot.segment.spi.index.reader.TextIndexReader;
+import org.apache.pinot.segment.spi.index.reader.TimeSeriesIndexReader;
 import org.apache.pinot.segment.spi.store.SegmentDirectory;
 import org.apache.pinot.spi.config.table.FieldConfig;
 import org.apache.pinot.spi.config.table.IndexConfig;
 import org.apache.pinot.spi.config.table.SegmentZKPropsConfig;
 import org.apache.pinot.spi.config.table.TableConfig;
 import org.apache.pinot.spi.config.table.TableType;
+import org.apache.pinot.spi.config.table.TimeSeriesIndexConfig;
 import org.apache.pinot.spi.data.FieldSpec;
 import org.apache.pinot.spi.data.Schema;
 import org.apache.pinot.spi.data.TimeGranularitySpec;
 import org.apache.pinot.spi.data.readers.GenericRow;
+import org.apache.pinot.spi.utils.JsonUtils;
 import org.apache.pinot.spi.utils.ReadMode;
 import org.apache.pinot.spi.utils.builder.TableConfigBuilder;
 import org.roaringbitmap.buffer.ImmutableRoaringBitmap;
@@ -707,6 +714,144 @@ public class RealtimeSegmentConverterTest implements PinotBuffersAfterMethodChec
         assertEquals(textIndexReader.getDocIds("str-8"), ImmutableRoaringBitmap.bitmapOf(7));
         assertEquals(textIndexReader.getDocIds("str-4"), ImmutableRoaringBitmap.bitmapOf(3));
       }
+    } finally {
+      mutableSegmentImpl.destroy();
+      if (segmentFile != null) {
+        segmentFile.destroy();
+      }
+    }
+  }
+
+  // Test the realtime segment conversion with time series index
+  @Test
+  public void testSegmentBuilderTimeSeriesIndex()
+      throws Exception {
+    File tmpDir = new File(TMP_DIR, "tmp_" + System.nanoTime());
+
+    // Enable time series index, disable forward index
+    ObjectNode indexes = JsonUtils.newObjectNode();
+    TimeSeriesIndexConfig timeSeriesIndexConfig = TimeSeriesIndexConfig.ENABLED;
+    indexes.set("timeseries", timeSeriesIndexConfig.toJsonNode());
+    FieldConfig timeSeriesFieldConfig =
+        new FieldConfig.Builder(STRING_COLUMN1).withEncodingType(FieldConfig.EncodingType.RAW).withIndexes(indexes)
+            .build();
+
+    List<FieldConfig> fieldConfigList = Collections.singletonList(timeSeriesFieldConfig);
+    TableConfig tableConfig =
+        new TableConfigBuilder(TableType.REALTIME).setTableName("testTable").setTimeColumnName(DATE_TIME_COLUMN)
+            .setFieldConfigList(fieldConfigList).build();
+    Schema schema = new Schema.SchemaBuilder().addSingleValueDimension(STRING_COLUMN1, FieldSpec.DataType.STRING)
+        .addDateTime(DATE_TIME_COLUMN, FieldSpec.DataType.LONG, "1:MILLISECONDS:EPOCH", "1:MILLISECONDS").build();
+
+    String tableNameWithType = tableConfig.getTableName();
+    String segmentName = "testTable__0__0__123456";
+
+    RealtimeSegmentConfig.Builder realtimeSegmentConfigBuilder =
+        new RealtimeSegmentConfig.Builder().setTableNameWithType(tableNameWithType).setSegmentName(segmentName)
+            .setStreamName(tableNameWithType).setSchema(schema).setTimeColumnName(DATE_TIME_COLUMN).setCapacity(1000)
+            .setIndex(Sets.newHashSet(LONG_COLUMN1), StandardIndexes.inverted(), IndexConfig.ENABLED)
+            .setIndex(Sets.newHashSet(STRING_COLUMN1), StandardIndexes.timeSeries(), timeSeriesIndexConfig)
+            .setFieldConfigList(fieldConfigList).setSegmentZKMetadata(getSegmentZKMetadata(segmentName))
+            .setOffHeap(true).setMemoryManager(new DirectMemoryManager(segmentName))
+            .setStatsHistory(RealtimeSegmentStatsHistory.deserialzeFrom(new File(tmpDir, "stats")))
+            .setConsumerDir(new File(tmpDir, "consumerDir").getAbsolutePath());
+
+    // create mutable segment impl
+    ImmutableSegmentImpl segmentFile = null;
+    MutableSegmentImpl mutableSegmentImpl = new MutableSegmentImpl(realtimeSegmentConfigBuilder.build(), null);
+    try {
+      List<GenericRow> rows = new ArrayList<>();
+      for (int i = 0; i < 10; i++) {
+        GenericRow row = new GenericRow();
+        row.putValue(STRING_COLUMN1,
+            TimeSeriesUtils.getDataPointAsString(List.of("name=pinotmetric", "tag1=queries"), 1.0 + i, 1000L + i));
+        row.putValue(DATE_TIME_COLUMN, 1697814309L);
+        rows.add(row);
+      }
+      for (GenericRow row : rows) {
+        mutableSegmentImpl.index(row, null);
+      }
+
+      // Check mutable data
+      TimeSeriesIndexReader<?> mutableTimeSeriesIndexReader =
+          mutableSegmentImpl.getDataSource(STRING_COLUMN1).getTimeSeriesIndex();
+      Iterator<Integer> seriesIds =
+          mutableTimeSeriesIndexReader.getMatchingTimeSeriesIds(List.of("tag1=queries")).iterator();
+      int seriesId = seriesIds.next();
+      assertEquals(mutableTimeSeriesIndexReader.getTagSet(seriesId), "name=pinotmetric,tag1=queries");
+      assertEquals(mutableTimeSeriesIndexReader.getValues(seriesId, null).size(), 10);
+      assertEquals(mutableTimeSeriesIndexReader.getTimestamps(seriesId, null).size(), 10);
+
+      // Build converted segment
+      File outputDir = new File(new File(tmpDir, segmentName), "tmp-" + segmentName + "-" + System.currentTimeMillis());
+      SegmentZKPropsConfig segmentZKPropsConfig = new SegmentZKPropsConfig();
+      segmentZKPropsConfig.setStartOffset("1");
+      segmentZKPropsConfig.setEndOffset("100");
+      RealtimeSegmentConverter converter =
+          new RealtimeSegmentConverter(mutableSegmentImpl, segmentZKPropsConfig, outputDir.getAbsolutePath(), schema,
+              tableNameWithType, tableConfig, segmentName, false);
+      converter.build(SegmentVersion.v3, null);
+
+      File indexDir = new File(outputDir, segmentName);
+      SegmentMetadataImpl segmentMetadata = new SegmentMetadataImpl(indexDir);
+      assertEquals(segmentMetadata.getVersion(), SegmentVersion.v3);
+      assertEquals(segmentMetadata.getTotalDocs(), rows.size());
+      assertEquals(segmentMetadata.getTimeColumn(), DATE_TIME_COLUMN);
+      assertEquals(segmentMetadata.getTimeUnit(), TimeUnit.MILLISECONDS);
+
+      long expectedStartTime = (long) rows.get(0).getValue(DATE_TIME_COLUMN);
+      assertEquals(segmentMetadata.getStartTime(), expectedStartTime);
+      long expectedEndTime = (long) rows.get(rows.size() - 1).getValue(DATE_TIME_COLUMN);
+      assertEquals(segmentMetadata.getEndTime(), expectedEndTime);
+
+      assertTrue(segmentMetadata.getAllColumns().containsAll(schema.getColumnNames()));
+      assertEquals(segmentMetadata.getStartOffset(), "1");
+      assertEquals(segmentMetadata.getEndOffset(), "100");
+
+      // read converted segment
+      SegmentLocalFSDirectory segmentDir = new SegmentLocalFSDirectory(indexDir, segmentMetadata, ReadMode.mmap);
+      SegmentDirectory.Reader segmentReader = segmentDir.createReader();
+      Map<String, ColumnIndexContainer> indexContainerMap = new HashMap<>();
+      Map<String, ColumnMetadata> columnMetadataMap = segmentMetadata.getColumnMetadataMap();
+      IndexLoadingConfig indexLoadingConfig = new IndexLoadingConfig(null, tableConfig);
+      for (Map.Entry<String, ColumnMetadata> entry : columnMetadataMap.entrySet()) {
+        indexContainerMap.put(entry.getKey(),
+            new PhysicalColumnIndexContainer(segmentReader, entry.getValue(), indexLoadingConfig));
+      }
+      segmentFile = new ImmutableSegmentImpl(segmentDir, segmentMetadata, indexContainerMap, null);
+
+      // Test forward index contents, forward index is replaced for time series indexed column with \u0000
+      GenericRow readRow = new GenericRow();
+      int docId = 0;
+      for (int i = 0; i < rows.size(); i++) {
+        GenericRow row;
+        row = rows.get(i);
+        segmentFile.getRecord(docId, readRow);
+        assertEquals(readRow.getValue(STRING_COLUMN1), "\u0000");
+        assertEquals(readRow.getValue(DATE_TIME_COLUMN), row.getValue(DATE_TIME_COLUMN));
+        docId += 1;
+      }
+
+      // Check mutable data after conversion
+      seriesIds =
+          mutableTimeSeriesIndexReader.getMatchingTimeSeriesIds(List.of("tag1=queries")).iterator();
+      seriesId = seriesIds.next();
+      assertEquals(mutableTimeSeriesIndexReader.getTagSet(seriesId), "name=pinotmetric,tag1=queries");
+      assertEquals(mutableTimeSeriesIndexReader.getValues(seriesId, null).size(), 10);
+      assertEquals(mutableTimeSeriesIndexReader.getTimestamps(seriesId, null).size(), 10);
+
+      // Test converted data
+      @SuppressWarnings("unchecked")
+      TimeSeriesIndexReader<ForwardIndexReaderContext> timeSeriesIndexReader =
+          segmentFile.getIndex(STRING_COLUMN1, StandardIndexes.timeSeries());
+      ForwardIndexReaderContext timeSeriesReaderContext = timeSeriesIndexReader.createContext();
+      seriesIds =
+          timeSeriesIndexReader.getMatchingTimeSeriesIds(List.of("tag1=queries")).iterator();
+      seriesId = seriesIds.next();
+      assertEquals(timeSeriesIndexReader.getTagSet(seriesId), "name=pinotmetric,tag1=queries");
+      assertEquals(timeSeriesIndexReader.getValues(seriesId, timeSeriesReaderContext).size(), 10);
+      assertEquals(timeSeriesIndexReader.getTimestamps(seriesId, timeSeriesReaderContext).size(), 10);
+      timeSeriesReaderContext.close();
     } finally {
       mutableSegmentImpl.destroy();
       if (segmentFile != null) {

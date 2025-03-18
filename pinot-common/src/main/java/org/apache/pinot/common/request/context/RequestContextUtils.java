@@ -38,6 +38,7 @@ import org.apache.pinot.common.request.context.predicate.RangePredicate;
 import org.apache.pinot.common.request.context.predicate.RegexpLikePredicate;
 import org.apache.pinot.common.request.context.predicate.TextContainsPredicate;
 import org.apache.pinot.common.request.context.predicate.TextMatchPredicate;
+import org.apache.pinot.common.request.context.predicate.TimeSeriesPredicate;
 import org.apache.pinot.common.request.context.predicate.VectorSimilarityPredicate;
 import org.apache.pinot.common.utils.RegexpPatternConverterUtils;
 import org.apache.pinot.common.utils.request.RequestUtils;
@@ -255,6 +256,9 @@ public class RequestContextUtils {
         return FilterContext.forPredicate(new IsNullPredicate(getExpression(operands.get(0))));
       case IS_NOT_NULL:
         return FilterContext.forPredicate(new IsNotNullPredicate(getExpression(operands.get(0))));
+      case TIME_SERIES_MATCH:
+        return FilterContext.forPredicate(
+            new TimeSeriesPredicate(getExpression(operands.get(0)), getStringValue(operands.get(1))));
       default:
         throw new IllegalStateException();
     }
@@ -416,6 +420,8 @@ public class RequestContextUtils {
         return FilterContext.forPredicate(new IsNullPredicate(operands.get(0)));
       case IS_NOT_NULL:
         return FilterContext.forPredicate(new IsNotNullPredicate(operands.get(0)));
+      case TIME_SERIES_MATCH:
+        return FilterContext.forPredicate(new TimeSeriesPredicate(operands.get(0), getStringValue(operands.get(1))));
       default:
         throw new IllegalStateException();
     }

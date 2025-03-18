@@ -39,7 +39,8 @@ public enum FilterKind {
   JSON_MATCH,
   IS_NULL,
   IS_NOT_NULL,
-  VECTOR_SIMILARITY;
+  VECTOR_SIMILARITY,
+  TIME_SERIES_MATCH;
 
   /**
    * Helper method that returns true if the enum maps to a Range.

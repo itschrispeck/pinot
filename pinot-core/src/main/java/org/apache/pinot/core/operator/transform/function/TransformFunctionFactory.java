@@ -254,6 +254,12 @@ public class TransformFunctionFactory {
 
     // Time Series functions
     typeToImplementation.put(TransformFunctionType.TIME_SERIES_BUCKET, TimeSeriesBucketTransformFunction.class);
+    typeToImplementation.put(TransformFunctionType.TIME_SERIES_INDEX_TAG_SET,
+        TimeSeriesIndexTagSetTransformFunction.class);
+    typeToImplementation.put(TransformFunctionType.TIME_SERIES_INDEX_VALUES,
+        TimeSeriesIndexValuesTransformFunction.class);
+    typeToImplementation.put(TransformFunctionType.TIME_SERIES_INDEX_TIMESTAMPS,
+        TimeSeriesIndexTimestampsTransformFunction.class);
 
     Map<String, Class<? extends TransformFunction>> registry =
         new HashMap<>(HashUtil.getHashMapCapacity(typeToImplementation.size()));

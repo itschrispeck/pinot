@@ -140,6 +140,11 @@ public class LeafTimeSeriesPlanNode extends BaseTimeSeriesPlanNode {
   }
 
   public String getEffectiveFilter(TimeBuckets timeBuckets) {
+    // TODO: this is a hack to remove time filter for index queries.
+    if (_timeColumn.startsWith("timeSeriesIndex")) {
+      return _filterExpression;
+    }
+
     String filter = _filterExpression == null ? "" : _filterExpression;
     long startTime = _timeUnit.convert(Duration.ofSeconds(timeBuckets.getTimeRangeStartExclusive() - _offsetSeconds));
     long endTime = _timeUnit.convert(Duration.ofSeconds(timeBuckets.getTimeRangeEndInclusive() - _offsetSeconds));

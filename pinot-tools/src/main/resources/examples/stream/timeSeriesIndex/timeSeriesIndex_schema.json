@@ -1,0 +1,16 @@
+{
+  "dimensionFieldSpecs": [
+    {
+      "name": "indexCol",
+      "dataType": "STRING"
+    }
+  ],
+  "timeFieldSpec": {
+    "incomingGranularitySpec": {
+      "name": "timestamp",
+      "dataType": "LONG",
+      "timeType": "MILLISECONDS"
+    }
+  },
+  "schemaName": "timeSeriesIndex"
+}

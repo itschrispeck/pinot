@@ -60,6 +60,10 @@ public class IngestionConfig extends BaseJsonConfig {
     _schemaConformingTransformerConfig = schemaConformingTransformerConfig;
   }
 
+  @JsonPropertyDescription("Config related to the TimeSeriesTransformer")
+  @JsonProperty("timeSeriesTransformerConfig")
+  private TimeSeriesTransformerConfig _timeSeriesTransformerConfig;
+
   @JsonPropertyDescription("Configs related to record aggregation function applied during ingestion")
   private List<AggregationConfig> _aggregationConfigs;
 
@@ -75,9 +79,10 @@ public class IngestionConfig extends BaseJsonConfig {
   @Deprecated
   public IngestionConfig(@Nullable BatchIngestionConfig batchIngestionConfig,
       @Nullable StreamIngestionConfig streamIngestionConfig, @Nullable FilterConfig filterConfig,
-      @Nullable List<EnrichmentConfig> enrichmentConfigs,
-      @Nullable List<TransformConfig> transformConfigs, @Nullable ComplexTypeConfig complexTypeConfig,
+      @Nullable List<EnrichmentConfig> enrichmentConfigs, @Nullable List<TransformConfig> transformConfigs,
+      @Nullable ComplexTypeConfig complexTypeConfig,
       @Nullable SchemaConformingTransformerConfig schemaConformingTransformerConfig,
+      @Nullable TimeSeriesTransformerConfig timeSeriesTransformerConfig,
       @Nullable List<AggregationConfig> aggregationConfigs) {
     _batchIngestionConfig = batchIngestionConfig;
     _streamIngestionConfig = streamIngestionConfig;
@@ -86,6 +91,7 @@ public class IngestionConfig extends BaseJsonConfig {
     _transformConfigs = transformConfigs;
     _complexTypeConfig = complexTypeConfig;
     _schemaConformingTransformerConfig = schemaConformingTransformerConfig;
+    _timeSeriesTransformerConfig = timeSeriesTransformerConfig;
     _aggregationConfigs = aggregationConfigs;
   }
 
@@ -125,6 +131,11 @@ public class IngestionConfig extends BaseJsonConfig {
   @Nullable
   public SchemaConformingTransformerConfig getSchemaConformingTransformerConfig() {
     return _schemaConformingTransformerConfig;
+  }
+
+  @Nullable
+  public TimeSeriesTransformerConfig getTimeSeriesTransformerConfig() {
+    return _timeSeriesTransformerConfig;
   }
 
   @Nullable
@@ -171,6 +182,10 @@ public class IngestionConfig extends BaseJsonConfig {
   public void setSchemaConformingTransformerConfig(
       SchemaConformingTransformerConfig schemaConformingTransformerConfig) {
     _schemaConformingTransformerConfig = schemaConformingTransformerConfig;
+  }
+
+  public void setTimeSeriesTransformerConfig(TimeSeriesTransformerConfig timeSeriesTransformerConfig) {
+    _timeSeriesTransformerConfig = timeSeriesTransformerConfig;
   }
 
   public void setAggregationConfigs(List<AggregationConfig> aggregationConfigs) {
